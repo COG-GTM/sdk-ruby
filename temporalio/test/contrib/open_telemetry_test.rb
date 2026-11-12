@@ -219,7 +219,7 @@ module Contrib
       exp_root = ExpectedSpan.new(name: 'root')
       history = nil
       act_root = trace_workflow(:wait_on_signal) do |handle|
-        exp_cl_attrs = { 'temporalWorkflowID' => handle.id }
+        exp_cl_attrs = { 'temporalWorkflowID' => handle.id, 'temporalNamespace' => env.client.namespace }
         exp_run_attrs = exp_cl_attrs.merge({ 'temporalRunID' => handle.result_run_id })
         exp_start_wf = exp_root.add_child(name: 'StartWorkflow:TestWorkflow', attributes: exp_cl_attrs)
         exp_run_wf = exp_start_wf.add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_run_attrs)
@@ -275,7 +275,7 @@ module Contrib
     def test_handler_failures
       exp_root = ExpectedSpan.new(name: 'root')
       act_root = trace_workflow(:wait_on_signal) do |handle|
-        exp_cl_attrs = { 'temporalWorkflowID' => handle.id }
+        exp_cl_attrs = { 'temporalWorkflowID' => handle.id, 'temporalNamespace' => env.client.namespace }
         exp_run_attrs = exp_cl_attrs.merge({ 'temporalRunID' => handle.result_run_id })
         exp_start_wf = exp_root.add_child(name: 'StartWorkflow:TestWorkflow', attributes: exp_cl_attrs)
         exp_start_wf.add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_run_attrs)
@@ -339,7 +339,7 @@ module Contrib
       exp_root = ExpectedSpan.new(name: 'root')
       raw_finished_spans = []
       act_root = trace_workflow(:wait_on_signal, append_finished_spans_to: raw_finished_spans) do |handle|
-        exp_cl_attrs = { 'temporalWorkflowID' => handle.id }
+        exp_cl_attrs = { 'temporalWorkflowID' => handle.id, 'temporalNamespace' => env.client.namespace }
         exp_run_attrs = exp_cl_attrs.merge({ 'temporalRunID' => handle.result_run_id })
         exp_start_wf = exp_root.add_child(name: 'StartWorkflow:TestWorkflow', attributes: exp_cl_attrs)
         exp_start_wf.add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_run_attrs)
@@ -421,7 +421,8 @@ module Contrib
           )
         end
         exp_root.add_child(name: 'StartWorkflow:does-not-exist',
-                           attributes: { 'temporalWorkflowID' => 'does-not-exist' },
+                           attributes: { 'temporalWorkflowID' => 'does-not-exist',
+                                         'temporalNamespace' => env.client.namespace },
                            exception_message: err.message)
       end
       assert_equal exp_root.to_s_indented, act_root.to_s_indented
@@ -434,7 +435,8 @@ module Contrib
         end
         exp_root.add_child(name: 'StartWorkflowUpdate:does-not-exist',
                            attributes: { 'temporalWorkflowID' => 'does-not-exist',
-                                         'temporalUpdateID' => 'my-update-id' },
+                                         'temporalUpdateID' => 'my-update-id',
+                                         'temporalNamespace' => env.client.namespace },
                            exception_message: err.message)
       end
       assert_equal exp_root.to_s_indented, act_root.to_s_indented
@@ -447,7 +449,7 @@ module Contrib
       %i[child_workflow_child_signal child_workflow_external_signal].each do |scenario|
         exp_root = ExpectedSpan.new(name: 'root')
         act_root = trace_workflow(:wait_on_signal) do |handle|
-          exp_cl_attrs = { 'temporalWorkflowID' => handle.id }
+          exp_cl_attrs = { 'temporalWorkflowID' => handle.id, 'temporalNamespace' => env.client.namespace }
           exp_run_attrs = exp_cl_attrs.merge({ 'temporalRunID' => handle.result_run_id })
           exp_start_wf = exp_root.add_child(name: 'StartWorkflow:TestWorkflow', attributes: exp_cl_attrs)
           exp_start_wf.add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_run_attrs)
@@ -467,7 +469,8 @@ module Contrib
             links: [exp_update]
           )
           # Expected for children
-          exp_child_run_attrs = { 'temporalWorkflowID' => child_id, 'temporalRunID' => child_run_id }
+          exp_child_run_attrs = { 'temporalWorkflowID' => child_id, 'temporalRunID' => child_run_id,
+                                  'temporalNamespace' => env.client.namespace }
           exp_child_start = exp_hnd_update.add_child(name: 'StartChildWorkflow:TestWorkflow', attributes: exp_run_attrs)
           exp_child_start
             .add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_child_run_attrs)
@@ -501,7 +504,7 @@ module Contrib
     def test_continue_as_new
       exp_root = ExpectedSpan.new(name: 'root')
       act_root = trace_workflow(:continue_as_new) do |handle|
-        exp_cl_attrs = { 'temporalWorkflowID' => handle.id }
+        exp_cl_attrs = { 'temporalWorkflowID' => handle.id, 'temporalNamespace' => env.client.namespace }
         exp_run_attrs = exp_cl_attrs.merge({ 'temporalRunID' => handle.result_run_id })
         exp_start_wf = exp_root.add_child(name: 'StartWorkflow:TestWorkflow', attributes: exp_cl_attrs)
         exp_run_wf = exp_start_wf.add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_run_attrs)
@@ -535,7 +538,8 @@ module Contrib
         always_create_workflow_spans: true,
         check_root: false
       ) do |handle|
-        exp_attrs = { 'temporalWorkflowID' => handle.id, 'temporalRunID' => handle.result_run_id }
+        exp_attrs = { 'temporalWorkflowID' => handle.id, 'temporalRunID' => handle.result_run_id,
+                      'temporalNamespace' => env.client.namespace }
         exp_run_wf = exp_root.add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_attrs)
         exp_run_wf.add_child(name: 'CompleteWorkflow:TestWorkflow', attributes: exp_attrs)
         assert_equal 'workflow-done', handle.result
@@ -546,7 +550,7 @@ module Contrib
     def test_benign_workflow_exception
       exp_root = ExpectedSpan.new(name: 'root')
       act_root = trace_workflow(:fail_benign) do |handle|
-        exp_cl_attrs = { 'temporalWorkflowID' => handle.id }
+        exp_cl_attrs = { 'temporalWorkflowID' => handle.id, 'temporalNamespace' => env.client.namespace }
         exp_run_attrs = exp_cl_attrs.merge({ 'temporalRunID' => handle.result_run_id })
         exp_start_wf = exp_root.add_child(name: 'StartWorkflow:TestWorkflow', attributes: exp_cl_attrs)
         exp_run_wf = exp_start_wf.add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_run_attrs)
@@ -562,7 +566,7 @@ module Contrib
     def test_benign_activity_exception
       exp_root = ExpectedSpan.new(name: 'root')
       act_root = trace_workflow(:activity_fail_benign) do |handle|
-        exp_cl_attrs = { 'temporalWorkflowID' => handle.id }
+        exp_cl_attrs = { 'temporalWorkflowID' => handle.id, 'temporalNamespace' => env.client.namespace }
         exp_run_attrs = exp_cl_attrs.merge({ 'temporalRunID' => handle.result_run_id })
         exp_start_wf = exp_root.add_child(name: 'StartWorkflow:TestWorkflow', attributes: exp_cl_attrs)
         exp_run_wf = exp_start_wf.add_child(name: 'RunWorkflow:TestWorkflow', attributes: exp_run_attrs)
@@ -634,7 +638,7 @@ module Contrib
             TestWorkflow.signal, :mark_finished, start_workflow_operation:
           )
 
-          exp_cl_attrs = { 'temporalWorkflowID' => id }
+          exp_cl_attrs = { 'temporalWorkflowID' => id, 'temporalNamespace' => env.client.namespace }
           exp_run_attrs = exp_cl_attrs.merge({ 'temporalRunID' => handle.result_run_id })
           exp_sig_start = exp_root.add_child(name: 'SignalWithStartWorkflow:TestWorkflow', attributes: exp_cl_attrs)
           exp_sig_start.add_child(name: 'HandleSignal:signal', attributes: exp_run_attrs, links: [exp_sig_start])
@@ -647,6 +651,27 @@ module Contrib
         end
       end
       assert_equal exp_root.to_s_indented, act_root.to_s_indented
+    end
+
+    def test_namespace_attribute_on_all_spans
+      finished_spans = []
+      trace_workflow(:wait_on_signal, append_finished_spans_to: finished_spans) do |handle|
+        assert_eventually { assert handle.fetch_history_events.any?(&:workflow_task_completed_event_attributes) }
+        assert_equal 'activity-done', handle.execute_update(TestWorkflow.update, :call_activity)
+        assert_equal 'query-done', handle.query(TestWorkflow.query, :complete)
+        handle.signal(TestWorkflow.signal, :mark_finished)
+        assert_equal 'workflow-done', handle.result
+      end
+      # The custom activity span is created directly by the user's tracer, not by the interceptor
+      temporal_spans = finished_spans.reject { |span| %w[root custom-activity-span].include?(span.name) }
+      %w[StartWorkflow:TestWorkflow StartWorkflowUpdate:update QueryWorkflow:query SignalWorkflow:signal
+         RunWorkflow:TestWorkflow HandleUpdate:update custom-workflow-span StartActivity:TestActivity
+         RunActivity:TestActivity HandleQuery:query HandleSignal:signal CompleteWorkflow:TestWorkflow].each do |name|
+        assert(temporal_spans.any? { |span| span.name == name }, "Missing span #{name}")
+      end
+      temporal_spans.each do |span|
+        assert_equal env.client.namespace, span.attributes['temporalNamespace'], "Missing namespace on #{span.name}"
+      end
     end
 
     def test_otel_context_cleared
@@ -740,7 +765,8 @@ module Contrib
       end
 
       def to_s_indented(indent: '')
-        ret = "#{name} (attrs: #{attributes}"
+        # Attributes are sorted so expectations need not match the order the interceptor sets them in
+        ret = "#{name} (attrs: #{attributes.sort.to_h}"
         ret += ", links: [#{links.map(&:name).join(', ')}]" unless links.empty?
         ret += ", exception: '#{exception_message}'" if exception_message
         ret += ", ok: #{status_ok}"

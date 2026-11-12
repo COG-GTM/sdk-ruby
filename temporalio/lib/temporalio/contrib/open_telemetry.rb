@@ -4,6 +4,7 @@ require 'English'
 require 'opentelemetry' # This import will intentionally fail if the user does not have OTel gem available
 require 'temporalio/client/interceptor'
 require 'temporalio/converters/payload_converter'
+require 'temporalio/internal/client/implementation'
 require 'temporalio/worker/interceptor'
 
 module Temporalio
@@ -133,7 +134,7 @@ module Temporalio
             @root._with_started_span(
               name: "StartWorkflow:#{input.workflow}",
               kind: :client,
-              attributes: { 'temporalWorkflowID' => input.workflow_id },
+              attributes: _attributes('temporalWorkflowID' => input.workflow_id),
               outbound_input: input
             ) { super }
           end
@@ -143,8 +144,8 @@ module Temporalio
             @root._with_started_span(
               name: "UpdateWithStartWorkflow:#{input.update}",
               kind: :client,
-              attributes: { 'temporalWorkflowID' => input.start_workflow_operation.options.id,
-                            'temporalUpdateID' => input.update_id },
+              attributes: _attributes('temporalWorkflowID' => input.start_workflow_operation.options.id,
+                                      'temporalUpdateID' => input.update_id),
               outbound_input: input
             ) do
               # Also add to start headers
@@ -160,7 +161,7 @@ module Temporalio
             @root._with_started_span(
               name: "SignalWithStartWorkflow:#{input.start_workflow_operation.options.workflow}",
               kind: :client,
-              attributes: { 'temporalWorkflowID' => input.start_workflow_operation.options.id }
+              attributes: _attributes('temporalWorkflowID' => input.start_workflow_operation.options.id)
             ) do
               # SignalWithStartWorkflowInput has no top-level headers field and instead uses
               # start_workflow_operation.options.headers.
@@ -176,7 +177,7 @@ module Temporalio
             @root._with_started_span(
               name: "SignalWorkflow:#{input.signal}",
               kind: :client,
-              attributes: { 'temporalWorkflowID' => input.workflow_id },
+              attributes: _attributes('temporalWorkflowID' => input.workflow_id),
               outbound_input: input
             ) { super }
           end
@@ -186,7 +187,7 @@ module Temporalio
             @root._with_started_span(
               name: "QueryWorkflow:#{input.query}",
               kind: :client,
-              attributes: { 'temporalWorkflowID' => input.workflow_id },
+              attributes: _attributes('temporalWorkflowID' => input.workflow_id),
               outbound_input: input
             ) { super }
           end
@@ -196,9 +197,28 @@ module Temporalio
             @root._with_started_span(
               name: "StartWorkflowUpdate:#{input.update}",
               kind: :client,
-              attributes: { 'temporalWorkflowID' => input.workflow_id, 'temporalUpdateID' => input.update_id },
+              attributes: _attributes('temporalWorkflowID' => input.workflow_id,
+                                      'temporalUpdateID' => input.update_id),
               outbound_input: input
             ) { super }
+          end
+
+          # @!visibility private
+          def _attributes(attributes)
+            namespace = _namespace
+            namespace ? attributes.merge('temporalNamespace' => namespace) : attributes
+          end
+
+          # @!visibility private
+          def _namespace
+            return @namespace if defined?(@namespace)
+
+            # Outbound interceptors are not given the client, so we find its namespace from the implementation at the
+            # end of the chain. The client is immutable, so this can be cached.
+            interceptor = next_interceptor
+            interceptor = interceptor.next_interceptor while interceptor.is_a?(Client::Interceptor::Outbound) &&
+                                                             !interceptor.is_a?(Internal::Client::Implementation)
+            @namespace = (interceptor.client.namespace if interceptor.is_a?(Internal::Client::Implementation))
           end
         end
 
@@ -219,7 +239,8 @@ module Temporalio
               attributes: {
                 'temporalWorkflowID' => info.workflow_id,
                 'temporalRunID' => info.workflow_run_id,
-                'temporalActivityID' => info.activity_id
+                'temporalActivityID' => info.activity_id,
+                'temporalNamespace' => info.namespace
               }
             ) { super }
           ensure
@@ -469,7 +490,8 @@ module Temporalio
         # Create a completed span and execute block with the span set on the context.
         #
         # @param name [String] Span name.
-        # @param attributes [Hash] Span attributes. These will have workflow and run ID automatically added.
+        # @param attributes [Hash] Span attributes. These will have workflow ID, run ID, and namespace automatically
+        #   added.
         # @param links [Array, nil] Span links.
         # @param kind [Symbol, nil] Span kind.
         # @param exception [Exception, nil] Exception to record on the span.
@@ -511,7 +533,8 @@ module Temporalio
         # @note WARNING: It is UNSAFE to rely on the result of this method as it may be different/absent on replay.
         #
         # @param name [String] Span name.
-        # @param attributes [Hash] Span attributes. These will have workflow and run ID automatically added.
+        # @param attributes [Hash] Span attributes. These will have workflow ID, run ID, and namespace automatically
+        #   added.
         # @param links [Array, nil] Span links.
         # @param kind [Symbol, nil] Span kind.
         # @param exception [Exception, nil] Exception to record on the span.
@@ -535,7 +558,8 @@ module Temporalio
 
           # Create attributes, adding user-defined ones
           attributes = { 'temporalWorkflowID' => Temporalio::Workflow.info.workflow_id,
-                         'temporalRunID' => Temporalio::Workflow.info.run_id }.merge(attributes)
+                         'temporalRunID' => Temporalio::Workflow.info.run_id,
+                         'temporalNamespace' => Temporalio::Workflow.info.namespace }.merge(attributes)
 
           time = Temporalio::Workflow.now.dup
           # Disable durable scheduler because 1) synchronous/non-batch span processors in OTel use network (though could

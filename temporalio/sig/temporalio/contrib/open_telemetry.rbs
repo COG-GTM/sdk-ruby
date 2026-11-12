@@ -29,6 +29,9 @@ module Temporalio
 
         class ClientOutbound < Client::Interceptor::Outbound
           def initialize: (TracingInterceptor root, Client::Interceptor::Outbound next_interceptor) -> void
+
+          def _attributes: (Hash[String, untyped] attributes) -> Hash[String, untyped]
+          def _namespace: -> String?
         end
 
         class ActivityInbound < Worker::Interceptor::Activity::Inbound
