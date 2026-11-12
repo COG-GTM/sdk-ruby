@@ -19,6 +19,9 @@ class Temporalio::Internal::Client::Implementation < Temporalio::Client::Interce
   end
   def self.with_default_rpc_options(user_rpc_options); end
 
+  sig { returns(Temporalio::Client) }
+  attr_reader :client
+
   sig { params(client: Temporalio::Client).void }
   def initialize(client); end
 

@@ -8,6 +8,8 @@ module Temporalio
 
         def self.with_default_rpc_options: (Temporalio::Client::RPCOptions? user_rpc_options) -> Temporalio::Client::RPCOptions
 
+        def client: -> Temporalio::Client
+
         def initialize: (Temporalio::Client client) -> void
 
         def _start_workflow_request_from_with_start_options: (

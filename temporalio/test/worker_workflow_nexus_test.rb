@@ -544,6 +544,8 @@ class WorkerWorkflowNexusTest < Test
       span_names = finished_spans.map(&:name)
       assert_includes span_names, 'StartNexusOperation:test-service/echo',
                       "Expected StartNexusOperation span, got: #{span_names.inspect}"
+      nexus_span = finished_spans.find { |span| span.name == 'StartNexusOperation:test-service/echo' } || raise
+      assert_equal env.client.namespace, nexus_span.attributes['temporalNamespace']
     end
   end
 end

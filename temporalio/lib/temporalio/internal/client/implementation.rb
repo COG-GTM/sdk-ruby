@@ -74,6 +74,8 @@ module Temporalio
           user_rpc_options
         end
 
+        attr_reader :client
+
         def initialize(client)
           super(nil) # steep:ignore
           @client = client
